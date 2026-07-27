@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.zip
+oracle/data/*.npz
+oracle/data/*.json
+!oracle/data/.gitkeep

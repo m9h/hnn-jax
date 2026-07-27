@@ -1,0 +1,11 @@
+[project]
+name = "hnnjax"
+version = "0.0.1"
+description = "Differentiable JAX reimplementation of the HNN forward model, validated against an hnn_core oracle"
+requires-python = ">=3.10"
+dependencies = ["jax", "diffrax", "numpy"]
+[project.optional-dependencies]
+oracle = ["hnn_core>=0.6.0", "scipy", "joblib"]
+test = ["pytest"]
+[tool.setuptools.packages.find]
+where = ["src"]
