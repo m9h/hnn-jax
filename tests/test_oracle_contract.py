@@ -61,15 +61,17 @@ def test_autodiff_is_finite():
 @pytest.mark.skipif(not SHARDS, reason="no oracle shard yet (NSG upload staging down) — RED until generated")
 def test_forward_matches_oracle():
     d = np.load(SHARDS[0])
-    theta, dip_ref = d["theta"], d["dipole"]
+    theta, dip_ref, sfreq = d["theta"], d["dipole"], float(d["sfreq"])
+    tstop = 1000.0 * (dip_ref.shape[1] - 1) / sfreq          # ms — the oracle's true duration
+    t_ref = np.linspace(0.0, tstop, dip_ref.shape[1])         # oracle time axis (ms)
     corrs = []
     for th, ref in zip(theta, dip_ref):
-        _, sim = simulate(th, tstop=len(ref) * 0.5)  # align length; resampling handled in v1
-        n = min(len(sim), len(ref))
-        a, b = np.asarray(sim[:n]), np.asarray(ref[:n])
-        corrs.append(float(np.corrcoef(a, b)[0, 1]))
+        ts, sim = simulate(th, tstop=tstop)                   # jax on its own grid
+        sim_on_ref = np.interp(t_ref, np.asarray(ts), np.asarray(sim))  # resample to common axis
+        corrs.append(float(np.corrcoef(sim_on_ref, ref)[0, 1]))
     mean_corr = float(np.nanmean(corrs))
-    print(f"\nforward corr vs oracle: mean={mean_corr:.3f} over {len(corrs)} theta")
+    print(f"\nforward corr vs oracle: mean={mean_corr:.3f} over {len(corrs)} theta "
+          f"(tstop={tstop:.0f}ms, sfreq={sfreq:.0f}Hz)")
     assert mean_corr >= FORWARD_CORR_MIN
 
 

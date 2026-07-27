@@ -58,7 +58,9 @@ def simulate(theta, tstop: float = 170.0, dt: float = 0.5):
         args=p, saveat=dfx.SaveAt(ts=ts), max_steps=1_000_000,
         adjoint=dfx.RecursiveCheckpointAdjoint())
     Vs, Vd, _ = sol.ys
-    dipole = Vd - Vs                        # axial dendritic current ∝ current dipole
+    # axial dendritic current ∝ current dipole. Sign convention matched to hnn_core's aggregate
+    # dipole (verified against the oracle: Vd-Vs is anti-correlated, so use Vs-Vd).
+    dipole = Vs - Vd
     return ts, dipole
 
 
