@@ -47,6 +47,42 @@ an in-allocation joblib ensemble on **NSG** for free Expanse CPU scale — one s
 
 - **Model:** v0 — reduced 2-compartment pyramidal cell + slow K_m, reparameterized Gaussian drives
   (so gradients flow through drive timing; `tc_sync` = the "thalamocortical synchrony" the protocol
+  targets). Property tests pass; autodiff gradients finite. Forward correlation vs the oracle is
+  **+0.22** at v0 — the measured fidelity baseline the model iterates against. Roadmap in
+  `model.py` → population (vmap) → full multicompartment HH → L2/3+L5 network.
+- **Oracle:** working on **both** backends — locally (`oracle/generate_local.py`) and on
+  **NSG/Expanse** (`oracle/generate_shard.py`, 8/8 simulations, 128-core node).
+
+### ⚠️ The oracle must pin an `hnn_core` version — the backends are NOT interchangeable
+
+Running the *identical* Sobol θ batch on both backends gave **different reference dipoles**:
+
+| backend | hnn_core | NEURON | result |
+|---|---|---|---|
+| local | **0.6.1** | 8.2.7 | 8/8 dipoles |
+| NSG `PY_EXPANSE` | **0.3** | 8.2.2+ | 8/8 dipoles |
+
+Waveform correlation between them is only **0.62** (range 0.45–0.81), while amplitudes agree
+(RMS ratios 0.76–1.13, mostly ≈ 1.0) — i.e. **same scale, different waveform**, most likely because
+drive spike-time RNG and default network parameters changed across those releases. An oracle whose
+reference depends on the machine that produced it is not an oracle, so:
+
+- **`hnn_core >= 0.6.0` is pinned** (also what the JoVE protocol requires).
+- NSG's `PY_EXPANSE` tool bundles **0.3** and is therefore **unusable for oracle generation** as-is.
+  The dedicated `HNN_EXPANSE` tool advertises 0.6.1 — to be verified next.
+- `oracle/aggregate.py` **fails loudly** on version-inconsistent shards. This finding is why.
+
+### Useful NSG facts established by the shard
+
+- The node has **gcc/cc available**, so the earlier `nrnivmodl` failure was a NEURON-version
+  mismatch (system NEURON 8.2.2+ vs a pip-installed 8.2.7), *not* a missing compiler.
+- `hnn_core`, `scipy`, `joblib`, `numpy` are all **pre-installed** in `PY_EXPANSE` (nothing to pip).
+- 128 cores per node; 8 serial sims took ~858 s there vs ~247 s locally, so NSG's value is
+  **parallel width** (Sobol-dense shards), not per-simulation speed.
+
+
+- **Model:** v0 — reduced 2-compartment pyramidal cell + slow K_m, reparameterized Gaussian drives
+  (so gradients flow through drive timing; `tc_sync` = the "thalamocortical synchrony" the protocol
   targets). Runs, autodiff-able, property tests pass. Roadmap in `model.py` → population → full
   multicompartment HH → L2/3+L5 network.
 - **Oracle:** shard generator + study spec + aggregator + contract written. First NSG validation
