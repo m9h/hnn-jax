@@ -80,15 +80,6 @@ reference depends on the machine that produced it is not an oracle, so:
 - 128 cores per node; 8 serial sims took ~858 s there vs ~247 s locally, so NSG's value is
   **parallel width** (Sobol-dense shards), not per-simulation speed.
 
-
-- **Model:** v0 — reduced 2-compartment pyramidal cell + slow K_m, reparameterized Gaussian drives
-  (so gradients flow through drive timing; `tc_sync` = the "thalamocortical synchrony" the protocol
-  targets). Runs, autodiff-able, property tests pass. Roadmap in `model.py` → population → full
-  multicompartment HH → L2/3+L5 network.
-- **Oracle:** shard generator + study spec + aggregator + contract written. First NSG validation
-  shard is **blocked by an NSG-side outage** (upload staging returns "error creating tmp file" for
-  *all* tools right now); queued to retry. It doubles as the `hnn_core`-version/parallelism check.
-
 Fidelity is tracked, not asserted-perfect: the forward contract compares waveform correlation with a
 threshold we ratchet up (`FORWARD_CORR_MIN`) as the model matures against the oracle.
 
