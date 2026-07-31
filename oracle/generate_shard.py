@@ -125,23 +125,41 @@ def simulate(theta):
 
 
 def main():
-    ok, secs, err = pip(["hnn_core", "scipy", "joblib", "numpy<2"])
-    RESULT["pip_ok"], RESULT["pip_seconds"] = ok, secs
-    if not ok:
-        RESULT["pip_err"] = err; return _write()
-    sys.path.insert(0, LIBS)
+    import shutil
+    RESULT["compilers"] = {c: bool(shutil.which(c)) for c in ("gcc", "cc", "clang")}
+    # Prefer the tool's PRE-INSTALLED stack (PY_EXPANSE bundles hnn_core + neuron with mechanisms
+    # already compiled). Only pip-install to a writable target for what's genuinely missing, and only
+    # compile mechanisms if we had to install hnn_core ourselves.
+    need = []
+    for m, imp in (("hnn_core", "hnn_core"), ("scipy", "scipy"),
+                   ("joblib", "joblib"), ("numpy", "numpy")):
+        try:
+            __import__(imp)
+        except Exception:
+            need.append(m)
+    RESULT["preinstalled_missing"] = need
+    if need:
+        ok, secs, err = pip(["numpy<2" if m == "numpy" else m for m in need])
+        RESULT["pip_ok"], RESULT["pip_seconds"] = ok, secs
+        if not ok:
+            RESULT["pip_err"] = err; return _write()
+        sys.path.insert(0, LIBS)
 
     import numpy as np
     try:
         import hnn_core
         RESULT["hnn_core_version"] = hnn_core.__version__
+        RESULT["hnn_core_path"] = os.path.dirname(hnn_core.__file__)
         try:
             import neuron
             RESULT["neuron_version"] = neuron.__version__
         except Exception as e:
             RESULT["neuron_version"] = repr(e)
         RESULT["n_cores"] = os.cpu_count()
-        RESULT["mechanisms"] = ensure_mechanisms(hnn_core)
+        if "hnn_core" in need:                       # only compile a self-installed hnn_core
+            RESULT["mechanisms"] = ensure_mechanisms(hnn_core)
+        else:
+            RESULT["mechanisms"] = {"status": "preinstalled"}
     except Exception as e:
         RESULT["import_error"] = repr(e); return _write()
 
