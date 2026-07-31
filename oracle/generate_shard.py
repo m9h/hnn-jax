@@ -58,6 +58,36 @@ def pip(pkgs):
     return r.returncode == 0, round(time.time() - t0, 1), r.stderr[-800:]
 
 
+def ensure_mechanisms(hnn_core):
+    """Compile hnn_core's NEURON .mod mechanisms (pip --target install skips the build hook, so the
+    .so is missing -> 'No .so file found in hnn_core/mod'). Idempotent."""
+    import glob
+    import shutil
+    mod = os.path.join(os.path.dirname(hnn_core.__file__), "mod")
+    have = glob.glob(os.path.join(mod, "**", "*.so"), recursive=True)
+    if have:
+        return {"status": "precompiled", "so": [os.path.relpath(s, mod) for s in have[:2]]}
+    nrniv = shutil.which("nrnivmodl") or next(
+        iter(sorted(glob.glob(os.path.join(LIBS, "**", "nrnivmodl"), recursive=True))), None)
+    if not nrniv:
+        return {"status": "no_nrnivmodl"}
+    env = dict(os.environ)
+    env["PATH"] = os.path.dirname(nrniv) + os.pathsep + env.get("PATH", "")
+    try:
+        import neuron
+        for cand in (os.path.join(os.path.dirname(neuron.__file__), ".data", "lib"),
+                     os.path.join(os.path.dirname(neuron.__file__), "lib")):
+            if os.path.isdir(cand):
+                env["LD_LIBRARY_PATH"] = cand + os.pathsep + env.get("LD_LIBRARY_PATH", "")
+    except Exception:
+        pass
+    r = subprocess.run([nrniv], cwd=mod, capture_output=True, text=True, timeout=900, env=env)
+    return {"status": "compiled", "rc": r.returncode,
+            "so": [os.path.relpath(s, mod) for s in
+                   glob.glob(os.path.join(mod, "**", "*.so"), recursive=True)[:2]],
+            "stderr_tail": r.stderr[-300:]}
+
+
 def sobol(n_total, dim, seed=0):
     from scipy.stats import qmc
     return qmc.Sobol(d=dim, scramble=True, seed=seed).random(n_total)
@@ -111,6 +141,7 @@ def main():
         except Exception as e:
             RESULT["neuron_version"] = repr(e)
         RESULT["n_cores"] = os.cpu_count()
+        RESULT["mechanisms"] = ensure_mechanisms(hnn_core)
     except Exception as e:
         RESULT["import_error"] = repr(e); return _write()
 
