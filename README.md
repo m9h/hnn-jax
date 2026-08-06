@@ -45,11 +45,14 @@ an in-allocation joblib ensemble on **NSG** for free Expanse CPU scale — one s
 
 ## Status
 
-- **Model:** v0 — reduced 2-compartment pyramidal cell + slow K_m, reparameterized Gaussian drives
-  (so gradients flow through drive timing; `tc_sync` = the "thalamocortical synchrony" the protocol
-  targets). Property tests pass; autodiff gradients finite. Forward correlation vs the oracle is
-  **+0.22** at v0 — the measured fidelity baseline the model iterates against. Roadmap in
-  `model.py` → population (vmap) → full multicompartment HH → L2/3+L5 network.
+- **Model:** **v1 — population** (`population.py`): N cells, each with its own reparameterized
+  drive time `t_i = mu + sigma*eps_i`, `vmap`ped, dipole = mean over cells. Forward correlation vs
+  the hnn_core oracle **+0.43**, up from **+0.22** for the v0 mean-field version (`model.py`).
+  The gain is the population nonlinearity: averaging cell *responses* is not the response to the
+  *average* drive. Gradients flow through the jitter, including `tc_sync` (the drive `sigma`) —
+  the "thalamocortical synchrony" parameter the JoVE protocol targets, whose population effect v0
+  structurally could not represent. `FORWARD_CORR_MIN` is ratcheted to 0.40 so a regression goes
+  red. Next: full multicompartment HH → L2/3+L5 network.
 - **Oracle:** working on **both** backends — locally (`oracle/generate_local.py`) and on
   **NSG/Expanse** (`oracle/generate_shard.py`, 8/8 simulations, 128-core node).
 
